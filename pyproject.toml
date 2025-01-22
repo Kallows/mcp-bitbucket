@@ -1,0 +1,18 @@
+[project]
+name = "mcp-bitbucket"
+version = "0.1.0"
+description = "MCP server for bitbucket python API"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "mcp>=1.2.0",
+    "atlassian-python-api>=3.41.4",
+    "requests>=2.31.0"
+]
+
+[build-system]
+requires = [ "hatchling",]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mcp-bitbucket = "mcp_bitbucket:main"
