@@ -1,111 +1,79 @@
-# mcp-bitbucket MCP server
+# MCP Bitbucket Python 🦊
 
-MCP server for bitbucket python API
+A Python implementation of an MCP server for Bitbucket integration. MCP (Model Context Protocol) enables secure, local tool access for AI applications. The server runs locally on the same machine as your AI application.
 
-## Components
-
-### Resources
-
-The server implements a simple note storage system with:
-- Custom note:// URI scheme for accessing individual notes
-- Each note resource has a name, description and text/plain mimetype
-
-### Prompts
-
-The server provides a single prompt:
-- summarize-notes: Creates summaries of all stored notes
-  - Optional "style" argument to control detail level (brief/detailed)
-  - Generates prompt combining all current notes with style preference
-
-### Tools
-
-The server implements one tool:
-- add-note: Adds a new note to the server
-  - Takes "name" and "content" as required string arguments
-  - Updates server state and notifies clients of resource changes
-
-## Configuration
-
-[TODO: Add configuration details specific to your implementation]
-
-## Quickstart
-
-### Install
-
-#### Claude Desktop
-
-On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
-
-<details>
-  <summary>Development/Unpublished Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "mcp-bitbucket": {
-      "command": "uv",
-      "args": [
-        "--directory",
-        "D:\mcp\mcp-bitbucket",
-        "run",
-        "mcp-bitbucket"
-      ]
-    }
-  }
-  ```
-</details>
-
-<details>
-  <summary>Published Servers Configuration</summary>
-  ```
-  "mcpServers": {
-    "mcp-bitbucket": {
-      "command": "uvx",
-      "args": [
-        "mcp-bitbucket"
-      ]
-    }
-  }
-  ```
-</details>
-
-## Development
-
-### Building and Publishing
-
-To prepare the package for distribution:
-
-1. Sync dependencies and update lockfile:
-```bash
-uv sync
-```
-
-2. Build package distributions:
-```bash
-uv build
-```
-
-This will create source and wheel distributions in the `dist/` directory.
-
-3. Publish to PyPI:
-```bash
-uv publish
-```
-
-Note: You'll need to set PyPI credentials via environment variables or command flags:
-- Token: `--token` or `UV_PUBLISH_TOKEN`
-- Or username/password: `--username`/`UV_PUBLISH_USERNAME` and `--password`/`UV_PUBLISH_PASSWORD`
-
-### Debugging
-
-Since MCP servers run over stdio, debugging can be challenging. For the best debugging
-experience, we strongly recommend using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector).
-
-
-You can launch the MCP Inspector via [`npm`](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm) with this command:
+## Installation
 
 ```bash
-npx @modelcontextprotocol/inspector uv --directory D:\mcp\mcp-bitbucket run mcp-bitbucket
+# Install the server locally
+git clone https://github.com/kallows/mcp-bitbucket.git
 ```
 
+## Tools Available
 
-Upon launching, the Inspector will display a URL that you can access in your browser to begin debugging.
+This MCP server provides the following Bitbucket integration tools:
+
+- `bb_create_repository`: Create a new Bitbucket repository
+  - Required: name (repository name)
+  - Optional: description, workspace (defaults to kallows), project_key, is_private (default: true), has_issues (default: true)
+
+- `bb_create_branch`: Create a new branch in a repository
+  - Required: repo_slug, branch (name for the new branch)
+  - Optional: workspace (defaults to kallows), start_point (defaults to main)
+
+- `bb_delete_repository`: Delete a Bitbucket repository
+  - Required: repo_slug
+  - Optional: workspace (defaults to kallows)
+
+- `bb_read_file`: Read a file from a repository
+  - Required: repo_slug, path (file path in repository)
+  - Optional: workspace (defaults to kallows), branch (defaults to main/master)
+
+- `bb_write_file`: Create or update a file in a repository
+  - Required: repo_slug, path, content
+  - Optional: workspace (defaults to kallows), branch (defaults to main), message (commit message)
+
+- `bb_create_issue`: Create an issue in a repository
+  - Required: repo_slug, title, content
+  - Optional: workspace (defaults to kallows), kind (bug/enhancement/proposal/task), priority (trivial/minor/major/critical/blocker)
+
+- `bb_delete_issue`: Delete an issue from a repository
+  - Required: repo_slug, issue_id
+  - Optional: workspace (defaults to kallows)
+
+- `bb_search_repositories`: Search Bitbucket repositories using query syntax
+  - Required: query (e.g., 'name ~ "test"' or 'project.key = "PROJ"')
+  - Optional: workspace (defaults to kallows), page (default: 1), pagelen (default: 10, max: 100)
+
+- `bb_delete_file`: Delete a file from a repository
+  - Required: repo_slug, path
+  - Optional: workspace (defaults to kallows), branch (defaults to main), message (commit message)
+
+- `bb_create_pull_request`: Create a pull request
+  - Required: repo_slug, title, source_branch
+  - Optional: workspace (defaults to kallows), destination_branch (defaults to main), description, close_source_branch (default: true)
+
+## Environment Setup
+
+The server requires Bitbucket credentials to be set up as environment variables:
+
+```bash
+export BITBUCKET_USERNAME="your-username"
+export BITBUCKET_APP_PASSWORD="your-app-password"
+```
+
+## Project Structure
+
+```
+mcp-bitbucket/
+├── README.md
+├── pyproject.toml
+├── src/
+│   └── bitbucket_api/
+│       ├── __init__.py
+│       └── server.py
+└── tests/
+    ├── __init__.py
+    ├── test_bb_api.py
+    └── test_bb_integration.py
+```
