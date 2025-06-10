@@ -2,6 +2,10 @@
 
 A Python implementation of an MCP server for Bitbucket integration. MCP (Model Context Protocol) enables secure, local tool access for AI applications. The server runs locally on the same machine as your AI application.
 
+<a href="https://glama.ai/mcp/servers/@Kallows/mcp-bitbucket">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Kallows/mcp-bitbucket/badge" alt="Bitbucket Python MCP server" />
+</a>
+
 ## Installation
 
 ```bash
