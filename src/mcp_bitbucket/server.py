@@ -393,7 +393,110 @@ async def handle_list_tools() -> list[types.Tool]:
                 },
                 "required": ["repo_slug", "title", "source_branch"]
             }
-        )                
+        ),
+        types.Tool(
+            name="bb_read_pull_request", 
+            description="Read/get details of a pull request from a Bitbucket repository",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Repository workspace (defaults to kallows)",
+                        "default": "kallows"
+                    },
+                    "repo_slug": {
+                        "type": "string",
+                        "description": "Repository slug/name"
+                    },
+                    "pull_request_id": {
+                        "type": "string",
+                        "description": "ID of the pull request to read"
+                    }
+                },
+                "required": ["repo_slug", "pull_request_id"]
+            }
+        ),
+        types.Tool(
+            name="bb_list_pull_requests",
+            description="List pull requests in a Bitbucket repository",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Repository workspace (defaults to kallows)",
+                        "default": "kallows"
+                    },
+                    "repo_slug": {
+                        "type": "string",
+                        "description": "Repository slug/name"
+                    },
+                    "state": {
+                        "type": "string",
+                        "description": "Pull request state (OPEN, MERGED, DECLINED, SUPERSEDED)",
+                        "default": "OPEN"
+                    },
+                    "page": {
+                        "type": "integer",
+                        "description": "Page number for pagination",
+                        "default": 1
+                    },
+                    "pagelen": {
+                        "type": "integer",
+                        "description": "Number of results per page (max 50)",
+                        "default": 10
+                    }
+                },
+                "required": ["repo_slug"]
+            }
+        ),
+        types.Tool(
+            name="bb_get_pull_request_diff",
+            description="Get the full diff (line-by-line changes) for a pull request",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Repository workspace (defaults to kallows)",
+                        "default": "kallows"
+                    },
+                    "repo_slug": {
+                        "type": "string",
+                        "description": "Repository slug/name"
+                    },
+                    "pull_request_id": {
+                        "type": "string",
+                        "description": "ID of the pull request to get diff for"
+                    }
+                },
+                "required": ["repo_slug", "pull_request_id"]
+            }
+        ),
+        types.Tool(
+            name="bb_get_pull_request_diffstat",
+            description="Get diff statistics (files changed, lines added/removed) for a pull request",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "workspace": {
+                        "type": "string",
+                        "description": "Repository workspace (defaults to kallows)",
+                        "default": "kallows"
+                    },
+                    "repo_slug": {
+                        "type": "string",
+                        "description": "Repository slug/name"
+                    },
+                    "pull_request_id": {
+                        "type": "string",
+                        "description": "ID of the pull request to get diffstat for"
+                    }
+                },
+                "required": ["repo_slug", "pull_request_id"]
+            }
+        )
     ]
 
 @server.call_tool()
@@ -825,6 +928,253 @@ async def handle_call_tool(name: str, arguments: dict | None) -> list[types.Text
                 return [types.TextContent(
                     type="text",
                     text=f"Failed to create pull request: {response.status_code}\n{format_permission_error(response.text)}",
+                    isError=True
+                )]
+
+        elif name == "bb_read_pull_request":
+            workspace = arguments.get("workspace", "kallows")
+            repo_slug = arguments.get("repo_slug")
+            pull_request_id = arguments.get("pull_request_id")
+
+            url = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}"
+            response = requests.get(url, auth=auth, headers=headers)
+
+            if response.status_code == 200:
+                pr_data = response.json()
+                
+                # Format the pull request information nicely
+                pr_info = {
+                    'id': pr_data.get('id'),
+                    'title': pr_data.get('title'),
+                    'description': pr_data.get('description', 'No description'),
+                    'state': pr_data.get('state'),
+                    'created_on': pr_data.get('created_on'),
+                    'updated_on': pr_data.get('updated_on'),
+                    'author': pr_data.get('author', {}).get('display_name', 'Unknown'),
+                    'source_branch': pr_data.get('source', {}).get('branch', {}).get('name', 'Unknown'),
+                    'destination_branch': pr_data.get('destination', {}).get('branch', {}).get('name', 'Unknown'),
+                    'merge_commit': pr_data.get('merge_commit', {}).get('hash', 'N/A') if pr_data.get('merge_commit') else 'N/A',
+                    'comment_count': pr_data.get('comment_count', 0),
+                    'task_count': pr_data.get('task_count', 0),
+                    'close_source_branch': pr_data.get('close_source_branch', False),
+                    'url': pr_data.get('links', {}).get('html', {}).get('href', '')
+                }
+                
+                formatted_output = f"""Pull Request #{pr_info['id']}: {pr_info['title']}
+
+Description: {pr_info['description']}
+State: {pr_info['state']}
+Author: {pr_info['author']}
+Created: {pr_info['created_on']}
+Updated: {pr_info['updated_on']}
+
+Branches:
+  Source: {pr_info['source_branch']}
+  Destination: {pr_info['destination_branch']}
+  Close source after merge: {pr_info['close_source_branch']}
+
+Statistics:
+  Comments: {pr_info['comment_count']}
+  Tasks: {pr_info['task_count']}
+  Merge commit: {pr_info['merge_commit']}
+
+URL: {pr_info['url']}"""
+
+                return [types.TextContent(
+                    type="text",
+                    text=formatted_output
+                )]
+            else:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to read pull request: {response.status_code}\n{format_permission_error(response.text)}",
+                    isError=True
+                )]
+
+        elif name == "bb_list_pull_requests":
+            workspace = arguments.get("workspace", "kallows")
+            repo_slug = arguments.get("repo_slug")
+            state = arguments.get("state", "OPEN")
+            page = arguments.get("page", 1)
+            pagelen = min(arguments.get("pagelen", 10), 50)  # Cap at 50
+
+            url = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}/pullrequests"
+            
+            params = {
+                'state': state,
+                'page': page,
+                'pagelen': pagelen
+            }
+            
+            response = requests.get(url, params=params, auth=auth, headers=headers)
+
+            if response.status_code == 200:
+                pr_list = response.json()
+                
+                # Format the results nicely
+                results = []
+                for pr in pr_list.get('values', []):
+                    pr_info = {
+                        'id': pr.get('id'),
+                        'title': pr.get('title'),
+                        'state': pr.get('state'),
+                        'author': pr.get('author', {}).get('display_name', 'Unknown'),
+                        'created_on': pr.get('created_on'),
+                        'source_branch': pr.get('source', {}).get('branch', {}).get('name', 'Unknown'),
+                        'destination_branch': pr.get('destination', {}).get('branch', {}).get('name', 'Unknown'),
+                        'comment_count': pr.get('comment_count', 0),
+                        'url': pr.get('links', {}).get('html', {}).get('href', '')
+                    }
+                    results.append(pr_info)
+                
+                # Add pagination info
+                pagination = {
+                    'page': page,
+                    'pagelen': pagelen,
+                    'size': pr_list.get('size', 0),
+                    'next': 'next' in pr_list.get('links', {}),
+                    'previous': 'previous' in pr_list.get('links', {})
+                }
+                
+                formatted_output = f"Pull Requests ({state}) - Page {pagination['page']}\n"
+                formatted_output += f"Total results: {pagination['size']}\n\n"
+                
+                if results:
+                    for pr in results:
+                        formatted_output += f"#{pr['id']}: {pr['title']}\n"
+                        formatted_output += f"  State: {pr['state']}\n"
+                        formatted_output += f"  Author: {pr['author']}\n"
+                        formatted_output += f"  Branches: {pr['source_branch']} → {pr['destination_branch']}\n"
+                        formatted_output += f"  Comments: {pr['comment_count']}\n"
+                        formatted_output += f"  URL: {pr['url']}\n\n"
+                else:
+                    formatted_output += "No pull requests found.\n"
+                
+                if pagination['next']:
+                    formatted_output += f"More results available on page {pagination['page'] + 1}"
+                elif pagination['page'] > 1:
+                    formatted_output += "End of results"
+                
+                return [types.TextContent(
+                    type="text",
+                    text=formatted_output
+                )]
+            else:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to list pull requests: {response.status_code}\n{format_permission_error(response.text)}",
+                    isError=True
+                )]
+
+        elif name == "bb_get_pull_request_diff":
+            workspace = arguments.get("workspace", "kallows")
+            repo_slug = arguments.get("repo_slug")
+            pull_request_id = arguments.get("pull_request_id")
+
+            url = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/diff"
+            
+            # For diff, we need to handle plain text response, not JSON
+            response = requests.get(url, auth=auth)
+
+            if response.status_code == 200:
+                diff_content = response.text
+                
+                # Add a header with some context
+                header = f"Diff for Pull Request #{pull_request_id}\n"
+                header += f"Repository: {workspace}/{repo_slug}\n"
+                header += "=" * 60 + "\n\n"
+                
+                return [types.TextContent(
+                    type="text",
+                    text=header + diff_content
+                )]
+            else:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to get pull request diff: {response.status_code}\n{format_permission_error(response.text)}",
+                    isError=True
+                )]
+
+        elif name == "bb_get_pull_request_diffstat":
+            workspace = arguments.get("workspace", "kallows")
+            repo_slug = arguments.get("repo_slug")
+            pull_request_id = arguments.get("pull_request_id")
+
+            url = f"https://api.bitbucket.org/2.0/repositories/{workspace}/{repo_slug}/pullrequests/{pull_request_id}/diffstat"
+            response = requests.get(url, auth=auth, headers=headers)
+
+            if response.status_code == 200:
+                diffstat_data = response.json()
+                
+                # Format the diffstat information nicely
+                header = f"Diff Statistics for Pull Request #{pull_request_id}\n"
+                header += f"Repository: {workspace}/{repo_slug}\n"
+                header += "=" * 60 + "\n\n"
+                
+                total_additions = 0
+                total_deletions = 0
+                files_changed = 0
+                
+                file_stats = []
+                
+                for item in diffstat_data.get('values', []):
+                    lines_added = item.get('lines_added', 0)
+                    lines_removed = item.get('lines_removed', 0)
+                    status = item.get('status', 'unknown')
+                    
+                    # Get file paths
+                    old_path = item.get('old', {}).get('path') if item.get('old') else None
+                    new_path = item.get('new', {}).get('path') if item.get('new') else None
+                    
+                    # Determine the file path to display
+                    if status == 'added':
+                        file_path = new_path or 'unknown'
+                        file_display = f"{file_path} (added)"
+                    elif status == 'removed':
+                        file_path = old_path or 'unknown'
+                        file_display = f"{file_path} (deleted)"
+                    elif old_path != new_path and old_path and new_path:
+                        file_display = f"{old_path} → {new_path} (renamed)"
+                    else:
+                        file_path = new_path or old_path or 'unknown'
+                        file_display = file_path
+                    
+                    total_additions += lines_added
+                    total_deletions += lines_removed
+                    files_changed += 1
+                    
+                    # Create visual representation of changes
+                    if lines_added > 0 or lines_removed > 0:
+                        change_indicator = ""
+                        if lines_added > 0:
+                            change_indicator += "+" * min(lines_added, 20)
+                        if lines_removed > 0:
+                            change_indicator += "-" * min(lines_removed, 20)
+                        
+                        file_stats.append(f"{file_display}")
+                        file_stats.append(f"  +{lines_added} -{lines_removed} {change_indicator}")
+                    else:
+                        file_stats.append(f"{file_display} (no line changes)")
+                
+                # Summary
+                summary = f"Files changed: {files_changed}\n"
+                summary += f"Insertions: +{total_additions}\n"
+                summary += f"Deletions: -{total_deletions}\n"
+                summary += f"Net change: {total_additions - total_deletions:+d}\n\n"
+                
+                # File details
+                files_section = "Files:\n" + "\n".join(file_stats) if file_stats else "No files changed"
+                
+                formatted_output = header + summary + files_section
+                
+                return [types.TextContent(
+                    type="text",
+                    text=formatted_output
+                )]
+            else:
+                return [types.TextContent(
+                    type="text",
+                    text=f"Failed to get pull request diffstat: {response.status_code}\n{format_permission_error(response.text)}",
                     isError=True
                 )]
 

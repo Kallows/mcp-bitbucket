@@ -59,6 +59,24 @@ This MCP server provides the following Bitbucket integration tools:
   - Required: repo_slug, title, source_branch
   - Optional: workspace (defaults to kallows), destination_branch (defaults to main), description, close_source_branch (default: true)
 
+- `bb_read_pull_request`: Get detailed information about a specific pull request
+  - Required: repo_slug, pull_request_id
+  - Optional: workspace (defaults to kallows)
+
+- `bb_list_pull_requests`: List pull requests in a repository
+  - Required: repo_slug
+  - Optional: workspace (defaults to kallows), state (OPEN/MERGED/DECLINED/SUPERSEDED, default: OPEN), page (default: 1), pagelen (default: 10, max: 50)
+
+- `bb_get_pull_request_diff`: Get the complete line-by-line diff for a pull request
+  - Required: repo_slug, pull_request_id
+  - Optional: workspace (defaults to kallows)
+  - Returns: Full unified diff showing exact code changes
+
+- `bb_get_pull_request_diffstat`: Get diff statistics and file change summary for a pull request
+  - Required: repo_slug, pull_request_id
+  - Optional: workspace (defaults to kallows)
+  - Returns: Files changed, lines added/removed, and visual change indicators
+
 ## Environment Setup
 
 The server requires Bitbucket credentials to be set up as environment variables:
@@ -133,7 +151,8 @@ Once configured, the Bitbucket tools will be available in Claude Desktop. You ca
 - Read and write files in your repositories
 - Create and manage issues
 - Search for repositories
-- Create pull requests
+- Create, read, and analyze pull requests
+- Get detailed code diffs and change statistics
 - Manage repository files
 
 Example queries:
@@ -141,6 +160,30 @@ Example queries:
 - "Create a new branch called 'feature-xyz' in the my-project repository"
 - "Create a README.md file in my-project with some basic content"
 - "Search for repositories that contain 'python' in the name"
+- "List all open pull requests in my-project repository"
+- "Show me the details of pull request #123 in my-project"
+- "Get the diff for pull request #123 to see what code changes were made"
+- "Show me the diff statistics for pull request #123 to see which files were changed"
+
+## Pull Request Workflows
+
+The MCP server provides comprehensive pull request functionality:
+
+### Discovery and Analysis
+1. **List PRs:** Use `bb_list_pull_requests` to see all pull requests (open, merged, declined)
+2. **Get Details:** Use `bb_read_pull_request` to see PR information (title, description, author, branches, etc.)
+3. **Quick Overview:** Use `bb_get_pull_request_diffstat` to see which files changed and how many lines
+4. **Full Analysis:** Use `bb_get_pull_request_diff` to see exact line-by-line code changes
+
+### Example Workflow
+```
+1. "List all open pull requests in my-project"
+2. "Show me details for pull request #15"
+3. "Get the diff statistics for PR #15 to see what files were changed"
+4. "Show me the full diff for PR #15 to see the exact code changes"
+```
+
+The diff tools provide the same level of detail you'd get from `git diff` or the Bitbucket web interface, making code review and analysis seamless within your AI workflow.
 
 ## Workspace Configuration
 
