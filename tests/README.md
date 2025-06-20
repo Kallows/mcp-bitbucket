@@ -13,6 +13,11 @@ Unit tests for the Bitbucket API interface:
 - Tests edge cases and error conditions
 - Validates authentication handling
 - Tests permission error formatting
+- Comprehensive pull request functionality testing:
+  - Reading PR details with structured data validation
+  - Listing PRs with pagination and state filtering
+  - Getting complete diffs with proper content parsing
+  - Analyzing diff statistics with file status handling
 
 ### test_bb_integration.py
 Integration tests for all MCP tools provided by the server:
@@ -22,7 +27,8 @@ Integration tests for all MCP tools provided by the server:
   - Branch operations and management
   - File operations (read, write, delete)
   - Issue creation and management
-  - Pull request creation and workflow
+  - Pull request creation and comprehensive analysis workflow
+  - Pull request diff retrieval and statistics
 - Tests proper environment variable handling
 - Verifies correct MCP protocol implementation
 - Ensures proper error handling and status codes
@@ -67,7 +73,13 @@ python -m unittest discover tests -v
 ### Individual Test Methods
 ```bash
 # Test specific functionality
-python -m unittest tests.test_bb_api.TestBitbucketAPI.test_create_repository
+python -m unittest tests.test_bb_api.TestBitbucketApiTools.test_create_repository
+
+# Test new pull request functionality
+python -m unittest tests.test_bb_api.TestBitbucketApiTools.test_read_pull_request
+python -m unittest tests.test_bb_api.TestBitbucketApiTools.test_list_pull_requests
+python -m unittest tests.test_bb_api.TestBitbucketApiTools.test_get_pull_request_diff
+python -m unittest tests.test_bb_api.TestBitbucketApiTools.test_get_pull_request_diffstat
 ```
 
 ## Environment Setup
@@ -124,6 +136,10 @@ The test suite covers:
 
 ### Pull Requests
 - Creating PRs between branches
+- Reading individual pull request details
+- Listing pull requests with filtering (state, pagination)
+- Getting complete line-by-line diffs for PRs
+- Analyzing diff statistics and file changes
 - Setting up source and destination branches
 - PR descriptions and metadata
 
@@ -153,6 +169,31 @@ def test_read_file_success(self, mock_get):
 - Network timeouts and connectivity issues
 - Malformed JSON responses
 - Rate limiting responses
+
+### Pull Request Testing Patterns
+
+The new pull request tests include comprehensive scenarios:
+
+#### test_read_pull_request
+- Tests detailed PR information retrieval
+- Validates structured response parsing (author, branches, timestamps)
+- Verifies proper handling of PR metadata (comments, tasks, state)
+
+#### test_list_pull_requests
+- Tests pagination and filtering by state
+- Validates multiple PR response handling
+- Checks proper list formatting and navigation
+
+#### test_get_pull_request_diff
+- Tests complete unified diff retrieval
+- Validates diff content parsing and formatting
+- Ensures proper handling of file changes and line modifications
+
+#### test_get_pull_request_diffstat
+- Tests file change statistics
+- Validates handling of different file statuses (added, modified, removed)
+- Checks proper calculation of lines added/removed
+- Tests edge cases for renamed files and binary changes
 
 ## Integration Test Patterns
 

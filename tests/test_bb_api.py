@@ -240,6 +240,167 @@ class TestBitbucketApiTools(unittest.TestCase):
         self.assertTrue('id' in response.json())
         self.mocks['post'].assert_called_once()
 
+    def test_read_pull_request(self):
+        """Test reading a pull request from a Bitbucket repository"""
+        mock_data = {
+            'id': 123,
+            'title': 'Test Pull Request',
+            'description': 'Test PR description',
+            'state': 'OPEN',
+            'created_on': '2024-01-15T10:30:00.000000+00:00',
+            'updated_on': '2024-01-15T12:45:00.000000+00:00',
+            'author': {'display_name': 'Test User'},
+            'source': {'branch': {'name': 'feature-branch'}},
+            'destination': {'branch': {'name': 'main'}},
+            'comment_count': 3,
+            'task_count': 1,
+            'close_source_branch': True,
+            'links': {'html': {'href': 'https://bitbucket.org/kallows/test-repo/pull-requests/123'}}
+        }
+        self.mocks['get'].return_value = self._mock_response(200, mock_data)
+        
+        response = requests.get(
+            f"https://api.bitbucket.org/2.0/repositories/{self.test_workspace}/{self.test_repo_slug}/pullrequests/123",
+            auth=('test_user', 'test_password')
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        pr_data = response.json()
+        self.assertEqual(pr_data['id'], 123)
+        self.assertEqual(pr_data['title'], 'Test Pull Request')
+        self.assertEqual(pr_data['state'], 'OPEN')
+        self.mocks['get'].assert_called_once()
+
+    def test_list_pull_requests(self):
+        """Test listing pull requests in a Bitbucket repository"""
+        mock_data = {
+            'size': 2,
+            'values': [
+                {
+                    'id': 123,
+                    'title': 'Feature A',
+                    'state': 'OPEN',
+                    'author': {'display_name': 'User A'},
+                    'created_on': '2024-01-15T10:30:00.000000+00:00',
+                    'source': {'branch': {'name': 'feature-a'}},
+                    'destination': {'branch': {'name': 'main'}},
+                    'comment_count': 2,
+                    'links': {'html': {'href': 'https://bitbucket.org/kallows/test-repo/pull-requests/123'}}
+                },
+                {
+                    'id': 124,
+                    'title': 'Bug Fix B',
+                    'state': 'OPEN',
+                    'author': {'display_name': 'User B'},
+                    'created_on': '2024-01-15T11:00:00.000000+00:00',
+                    'source': {'branch': {'name': 'bugfix-b'}},
+                    'destination': {'branch': {'name': 'main'}},
+                    'comment_count': 0,
+                    'links': {'html': {'href': 'https://bitbucket.org/kallows/test-repo/pull-requests/124'}}
+                }
+            ],
+            'links': {}
+        }
+        self.mocks['get'].return_value = self._mock_response(200, mock_data)
+        
+        response = requests.get(
+            f"https://api.bitbucket.org/2.0/repositories/{self.test_workspace}/{self.test_repo_slug}/pullrequests",
+            auth=('test_user', 'test_password'),
+            params={'state': 'OPEN', 'page': 1, 'pagelen': 10}
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        pr_list = response.json()
+        self.assertEqual(pr_list['size'], 2)
+        self.assertEqual(len(pr_list['values']), 2)
+        self.assertEqual(pr_list['values'][0]['id'], 123)
+        self.mocks['get'].assert_called_once()
+
+    def test_get_pull_request_diff(self):
+        """Test getting diff for a pull request"""
+        mock_diff_content = """diff --git a/src/main.py b/src/main.py
+index 1234567..abcdefg 100644
+--- a/src/main.py
++++ b/src/main.py
+@@ -1,5 +1,8 @@
+ def main():
+-    print("Hello World")
++    print("Hello, World!")
++    print("This is a test change")
+     return 0
++
++if __name__ == "__main__":
++    main()
+"""
+        self.mocks['get'].return_value = self._mock_response(200, content=mock_diff_content)
+        
+        response = requests.get(
+            f"https://api.bitbucket.org/2.0/repositories/{self.test_workspace}/{self.test_repo_slug}/pullrequests/123/diff",
+            auth=('test_user', 'test_password')
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("diff --git", response.text)
+        self.assertIn("src/main.py", response.text)
+        self.assertIn("+    print(\"Hello, World!\")", response.text)
+        self.mocks['get'].assert_called_once()
+
+    def test_get_pull_request_diffstat(self):
+        """Test getting diff statistics for a pull request"""
+        mock_data = {
+            'values': [
+                {
+                    'lines_added': 4,
+                    'lines_removed': 1,
+                    'status': 'modified',
+                    'old': {'path': 'src/main.py'},
+                    'new': {'path': 'src/main.py'}
+                },
+                {
+                    'lines_added': 15,
+                    'lines_removed': 0,
+                    'status': 'added',
+                    'old': None,
+                    'new': {'path': 'src/utils.py'}
+                },
+                {
+                    'lines_added': 0,
+                    'lines_removed': 20,
+                    'status': 'removed',
+                    'old': {'path': 'src/legacy.py'},
+                    'new': None
+                }
+            ]
+        }
+        self.mocks['get'].return_value = self._mock_response(200, mock_data)
+        
+        response = requests.get(
+            f"https://api.bitbucket.org/2.0/repositories/{self.test_workspace}/{self.test_repo_slug}/pullrequests/123/diffstat",
+            auth=('test_user', 'test_password')
+        )
+        
+        self.assertEqual(response.status_code, 200)
+        diffstat = response.json()
+        self.assertEqual(len(diffstat['values']), 3)
+        
+        # Test modified file
+        modified_file = diffstat['values'][0]
+        self.assertEqual(modified_file['lines_added'], 4)
+        self.assertEqual(modified_file['lines_removed'], 1)
+        self.assertEqual(modified_file['status'], 'modified')
+        
+        # Test added file
+        added_file = diffstat['values'][1]
+        self.assertEqual(added_file['lines_added'], 15)
+        self.assertEqual(added_file['status'], 'added')
+        
+        # Test removed file
+        removed_file = diffstat['values'][2]
+        self.assertEqual(removed_file['lines_removed'], 20)
+        self.assertEqual(removed_file['status'], 'removed')
+        
+        self.mocks['get'].assert_called_once()
+
     def test_create_branch(self):
         """Test creating a new branch"""
         mock_data = {'name': 'feature-branch'}
